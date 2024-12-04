@@ -216,6 +216,151 @@ const remove_student = async (req, res) => {
   }
 };
 
+// Get students by teacher id
+
+const get_student_by_teacher_id = async (req, resp) => {
+  try {
+    const teacher_id = req.body._id;
+    const student_get = await Class.aggregate([
+      {
+        $match: { teacher_id: new mongoose.Types.ObjectId(teacher_id) },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "students",
+          foreignField: "_id",
+          as: "student_detail",
+        },
+      },
+      {
+        $unwind: "$student_detail",
+      },
+      {
+        $project: {
+          full_name: {
+            $concat: [
+              "$student_detail.first_name",
+              " ",
+              "$student_detail.last_name",
+            ],
+          },
+          _id: "$student_detail._id",
+        },
+      },
+    ]);
+    resp
+      .status(200)
+      .send({ message: `Data fetched successfully`, data: student_get });
+  } catch (error) {
+    resp.status(400).send(error.message);
+  }
+};
+
+// Get teacher by student id
+
+const get_teachers_by_student_id = async (req, resp) => {
+  try {
+    const student_id = req.body.student_id;
+
+    const teachers = await Class.aggregate([
+      {
+        $match: {
+          students: new mongoose.Types.ObjectId(student_id),
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "teacher_id",
+          foreignField: "_id",
+          as: "teacher_detail",
+        },
+      },
+      {
+        $unwind: "$teacher_detail",
+      },
+      {
+        $project: {
+          teacher_id: "$teacher_detail._id",
+          full_name: {
+            $concat: [
+              "$teacher_detail.first_name",
+              " ",
+              "$teacher_detail.last_name",
+            ],
+          },
+        },
+      },
+    ]);
+    resp.status(200).send({ message: "Data fetched successfully", teachers });
+  } catch (error) {
+    resp.status(500).send({ error: error.message });
+  }
+};
+
+// Get parents by teacher id
+const get_parents_of_teacher_id = async (req, resp) => {
+  try {
+    const teacher_id = req.body.teacher_id;
+
+    const parents = await Class.aggregate([
+      {
+        $match: {
+          teacher_id: new mongoose.Types.ObjectId(teacher_id), 
+        },
+      },
+      {
+        $unwind: "$students", 
+      },
+      {
+        $lookup: {
+          from: "users", 
+          localField: "students",
+          foreignField: "_id",
+          as: "student_detail",
+        },
+      },
+      {
+        $unwind: "$student_detail", 
+      },
+      {
+        $lookup: {
+          from: "users", 
+          localField: "student_detail._id",
+          foreignField: "children",
+          as: "parent_detail",
+        },
+      },
+      {
+        $unwind: {
+          path: "$parent_detail",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          parent: {
+            parent_id: "$parent_detail._id",
+            parent_name: {
+              $concat: [
+                "$parent_detail.first_name",
+                " ",
+                "$parent_detail.last_name",
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    resp.status(200).send({ message: "Data fetched successfully", parents });
+  } catch (error) {
+    resp.status(500).send({ error: error.message });
+  }
+};
+
+
 export {
   new_class,
   get_class,
@@ -226,4 +371,7 @@ export {
   get_periods_by_student,
   add_student,
   remove_student,
+  get_student_by_teacher_id,
+  get_teachers_by_student_id,
+  get_parents_of_teacher_id
 };

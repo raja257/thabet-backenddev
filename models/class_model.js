@@ -36,5 +36,3 @@ const class_schema = new mongoose.Schema(
 const Class = mongoose.model("classes", class_schema);
 export { Class };
 
-// teacher id classes fetch subjectss fects
-//

@@ -1,4 +1,5 @@
 import { User } from "../models/user_model.js";
+import { Class } from "../models/class_model.js";
 import {
   validate_signup,
   validate_login,
@@ -208,6 +209,8 @@ const get_child = async (req, resp) => {
   }
 };
 
+// Get all students.
+
 const get_students = async (req, resp) => {
   try {
     const students = await User.aggregate([
@@ -230,6 +233,79 @@ const get_students = async (req, resp) => {
   }
 };
 
+// Get childs teacher by parent id.
+
+const get_teachers_by_parent_id = async (req, resp) => {
+  try {
+    const parent_id = req.body._id;
+    const teacher_data = await User.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(parent_id),
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "children",
+          foreignField: "_id",
+          as: "children",
+        },
+      },
+      {
+        $unwind: {
+          path: "$children",
+        },
+      },
+      {
+        $lookup: {
+          from: "classes",
+          localField: "children._id",
+          foreignField: "students",
+          as: "grade",
+        },
+      },
+      {
+        $unwind: {
+          path: "$grade",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "grade.teacher_id",
+          foreignField: "_id",
+          as: "teacher",
+        },
+      },
+      {
+        $unwind: {
+          path: "$teacher",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          teacher: {
+            _id: "$teacher._id",
+            full_name: {
+              $concat: ["$teacher.first_name", " ", "$teacher.last_name"],
+            },
+          },
+        },
+      },
+    ]);
+    resp
+      .status(200)
+      .send({ message: "Data fetched successfully", teacher_data });
+  } catch (error) {
+    resp.status(400).json({ error: error.message });
+  }
+};
+
+
+
+
 export {
   Signup,
   Login,
@@ -237,4 +313,5 @@ export {
   childrens,
   get_child,
   get_students,
+  get_teachers_by_parent_id,
 };
