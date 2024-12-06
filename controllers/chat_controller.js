@@ -58,6 +58,11 @@ const get_chat = async (req, resp) => {
           },
         },
       },
+      {
+        $unwind:{
+          path:"$messages"
+        }
+      }
     ]);
 
     return resp
@@ -68,4 +73,4 @@ const get_chat = async (req, resp) => {
   }
 };
 
-export { new_chat, get_chat };
+export { new_chat, get_chat };
