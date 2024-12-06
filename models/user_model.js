@@ -36,6 +36,9 @@ const user_schema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  attendance: {
+    type: Array,
+  },
 });
 
 const User = mongoose.model("User", user_schema);

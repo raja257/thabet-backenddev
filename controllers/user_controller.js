@@ -86,27 +86,72 @@ const Login = async (req, resp) => {
 
 const certificate_upload = async (req, resp) => {
   try {
-    const certificate =
+    const certificate_upload =
       req.file && req.file.filename
-        ? [`certificates/${req.file.filename}`]
-        : [];
-    req.body.certificate = certificate;
+        ? `certificates/${req.file.filename}`
+        : null;
 
-    // Find user by ID if you're adding to an existing user
-    // const user = await User.findById(req.params.userId);
-    // user.certificate = req.body.certificate;
+    if (!certificate_upload) {
+      return resp
+        .status(400)
+        .json({ message: "No certificate file uploaded." });
+    }
+    const { student_id, teacher_id } = req.body;
 
-    // Or create a new user with just the certificate field if this is the intent
-    const data = new User({
-      certificate: certificate,
+    if (!student_id || !teacher_id) {
+      return resp
+        .status(400)
+        .json({ message: "Student ID and Teacher ID are required." });
+    }
+    const teacher = await User.findById(teacher_id);
+
+    if (!teacher || teacher.role !== "teacher") {
+      return resp
+        .status(403)
+        .json({ message: "Only teachers can upload certificates." });
+    }
+    const updatedStudent = await User.findByIdAndUpdate(
+      student_id,
+      { $push: { certificate: certificate_upload } },
+      { new: true }
+    );
+
+    if (!updatedStudent) {
+      return resp.status(404).json({ message: "Student not found." });
+    }
+
+    resp.status(200).json({
+      message: "Certificate uploaded successfully.",
+      data: updatedStudent,
     });
-
-    const save_data = await data.save();
-    resp.status(200).json({ message: "Certificate uploaded", data: save_data });
   } catch (error) {
     resp.status(400).json({ error: error.message });
   }
 };
+
+// Get Certificate by student id
+
+const get_certificate_by_student_id = async (req, resp) => {
+  try {
+    const student_id = req.body.student_id;
+    const data = await User.aggregate([
+      {
+        $match:{
+          _id: new mongoose.Types.ObjectId(student_id)
+        }
+      },
+      {
+        $project:{
+          _id: 0,
+          certificate: 1
+        }
+      }
+    ]);
+    resp.status(200).send({message:"Certificate fetched successfully", data })
+  } catch (error) {
+    resp.status(400).json({ error: error.message });
+  }
+}
 
 // Parents can add the student user as a child
 
@@ -303,15 +348,55 @@ const get_teachers_by_parent_id = async (req, resp) => {
   }
 };
 
+// Add Attendence
 
+const add_attendance = async (req, resp) => {
+  try {
+    const { student_id, date } = req.body;
+    const data = await User.findByIdAndUpdate(
+      student_id,
+      { $push: { attendance: date } },
+      { new: true }
+    );
+    resp.status(200).send({ message: `Attendance done`, data });
+  } catch (error) {
+    resp.status(400).json({ error: error.message });
+  }
+};
 
+// Get attendance
+
+const get_attendance = async (req, resp) => {
+  try {
+    const student_id = req.body.student_id;
+    const get_data = await User.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(student_id),
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          attendance: 1,
+        },
+      },
+    ]);
+    resp.status(200).send({ message: `Attendance get successfully`, get_data });
+  } catch (error) {
+    resp.status(400).json({ error: error.message });
+  }
+};
 
 export {
   Signup,
   Login,
   certificate_upload,
+  get_certificate_by_student_id,
   childrens,
   get_child,
   get_students,
   get_teachers_by_parent_id,
+  add_attendance,
+  get_attendance,
 };
